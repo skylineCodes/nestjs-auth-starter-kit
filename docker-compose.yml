@@ -1,0 +1,131 @@
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - auth-service
+    networks:
+      - elk
+
+  mariadb:
+    image: mariadb:10.5
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: gym_solution_9201  # Root user password
+      MYSQL_DATABASE: gym_solution     # Database name
+      MYSQL_USER: admin                  # User name
+      MYSQL_PASSWORD: gym_solution_9201   # User password
+      MYSQL_INITDB_SKIP_TZINFO: 1
+      MYSQL_TCP_KEEPALIVE: 60
+      MYSQL_CONNECT_TIMEOUT: 60
+      MYSQL_NET_READ_TIMEOUT: 60
+      MYSQL_NET_WRITE_TIMEOUT: 60
+    ports:
+      - "3306:3306"  # Expose the MariaDB port
+    volumes:
+      - mariadb_data:/var/lib/mysql  # Persist data
+    healthcheck:
+      # test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p", "kettl-commerce-2201"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - elk
+  
+  auth-service:
+    container_name: auth-service
+    build:
+      context: .
+      dockerfile: ./apps/auth-service/Dockerfile
+      target: development
+    command: npm run start:dev auth-service
+    env_file:
+      - ./apps/auth-service/.env
+    ports:
+      - '3001:3001'
+    volumes:
+      - .:/usr/src/app/auth-service
+      - ./libs/common/src/logger/logs:/usr/src/app/libs/common/src/logger/logs
+      - node_modules:/usr/src/app/auth-service/node_modules
+    depends_on:
+      - redis
+      - mongo
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks:
+      - elk
+  
+  mongo:
+    container_name: mongo
+    image: mongo:5
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - elk
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - elk
+
+  rabbitmq:
+    container_name: 'rabbitmq'
+    image: 'rabbitmq:3-management'
+    ports:
+      - '5672:5672' # For RabbitMQ protocol (AMQP)
+      - '15672:15672' # For RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: gym_solution_9202
+    networks:
+      - elk
+
+  notification-service:
+    container_name: notification-service
+    build:
+      context: .
+      dockerfile: ./apps/notification-service/Dockerfile
+      target: development
+    command: npm run start:dev notification-service
+    env_file:
+      - ./apps/notification-service/.env
+    volumes:
+      - .:/usr/src/app/notification-service
+      - ./libs/common/src/logger/logs:/usr/src/app/libs/common/src/logger/logs
+      - node_modules:/usr/src/app/notification-service/node_modules
+      - /usr/src/app/.cache/puppeteer:/usr/src/app/.cache/puppeteer
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: 'amqp://admin:kettl-commerce-2202@rabbitmq:5672'
+      CHROME_PATH: /usr/bin/chromium-browser
+    networks:
+      - elk
+
+networks:
+  elk:
+    driver: bridge
+  
+volumes:
+  mongo-data:
+  node_modules:
+  mariadb_data:
+    driver: local
+  redis_data:

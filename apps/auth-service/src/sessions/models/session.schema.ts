@@ -1,0 +1,27 @@
+import { AbstractDocument } from '@app/common';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+
+@Schema({ timestamps: true })
+export class Session extends AbstractDocument {
+  @Prop({ required: true })
+  userId: string;
+
+  @Prop({ required: true })
+  ipAddress: string;
+
+  @Prop() userAgent: string;
+
+  @Prop() deviceName: string;
+
+  @Prop() location?: string;
+
+  @Prop({ default: false }) isCurrentDevice: boolean;
+
+  @Prop({ default: false }) isSuspicious: boolean;
+
+  @Prop({ default: false }) revoked: boolean;
+
+  @Prop({ default: Date.now }) lastSeenAt: Date;
+}
+
+export const SessionSchema = SchemaFactory.createForClass(Session);
