@@ -229,6 +229,7 @@ export class UsersService {
       if (!user) throw new UnauthorizedException('User not found');
 
       const isPasswordValid = await bcrypt.compare(password, user.data.passwordHash);
+
       if (!isPasswordValid) {
         await this.loginActivityService.logActivity({
           userId: user?.data?._id,

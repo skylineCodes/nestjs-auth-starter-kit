@@ -42,7 +42,7 @@ export class LoginActivityService {
   }
 
   async getLogsForUser(userId: string) {
-    return await this.loginActivityRepo.findOne({ userId });
+    return await this.loginActivityRepo.findOne({ userId: String(userId) });
   }
 
   async detectAnomaly(userId: string, ipAddress: string) {

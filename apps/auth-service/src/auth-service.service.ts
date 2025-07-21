@@ -36,12 +36,15 @@ export class AuthServiceService {
         message: 'Account created successfully!',
       };
     } catch(error) {
+      console.log(error);
       if (error instanceof ConflictException || error instanceof BadRequestException) {
         throw error;
       }
 
-      // Fallback generic error
-      throw new BadRequestException('Registration failed');
+      return {
+        status: 500,
+        message: error.message,
+      };
     }
   }
 
@@ -49,7 +52,7 @@ export class AuthServiceService {
     try {
       const user: any = await this.usersService.validateUserCredentialsByEmail(dto.email, dto.password, request);
 
-      if (user?.status === 500) throw new Error(user?.message);
+      if (user?.status !== 200 || user?.data === null) throw new Error(user?.message);
 
       if (request?.ip) {
       const { location, isNewLocation } = await this.loginActivityService.detectAnomaly(user?.data?._id, request?.ip);
@@ -121,33 +124,47 @@ export class AuthServiceService {
   async logout(dto: LogoutDto, request: Request | any, response: Response) {
     const currentSessionId = request.cookies?.SessionId;
 
+    console.log('dto_session', dto);
+    
     if (dto.sessionId) {
+      console.log('dto_session', dto);
       // Logging out a different device — only revoke the session
       await this.sessionsService.revokeSession(dto.sessionId);
-  
+      
       return {
         status: 200,
         message: 'Device session revoked successfully',
+      };
+    } else if (currentSessionId && dto.sessionId === null) {
+      console.log('currentSessionId', currentSessionId);
+      // Revoke only the current session
+      await this.sessionsService.revokeSession(currentSessionId);
+
+      // Only clear cookies for current device
+      response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
+      response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
+      response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
+
+      return {
+        status: 200,
+        message: 'Logged out successfully',
       };
     }
 
     if (dto.logoutAll === true) {
       // Revoke all sessions (including current one)
       await this.sessionsService.revokeAllUserSessions(request?.user?._id);
-    } else if (currentSessionId) {
-      // Revoke only the current session
-      await this.sessionsService.revokeSession(currentSessionId);
+
+      // Only clear cookies for current device
+      response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
+      response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
+      response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
+
+      return {
+        status: 200,
+        message: 'Logged out all sessions successfully',
+      };
     }
-  
-    // Only clear cookies for current device
-    response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
-    response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
-    response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
-  
-    return {
-      status: 200,
-      message: 'Logged out successfully',
-    };
   }
   
 
@@ -175,7 +192,7 @@ export class AuthServiceService {
           </div>
           <div style="padding: 2rem;">
             <p>Hi there,</p>
-            <p>You recently requested a password reset for your account on <strong>Gym solution</strong>.</p>
+            <p>You recently requested a password reset for your account on <strong>Auth kit</strong>.</p>
             <p style="margin-top: 1rem;">Your One-Time Password (OTP) is:</p>
             <div style="font-size: 2rem; font-weight: bold; background-color: #f3f4f6; padding: 1rem; text-align: center; border-radius: 0.5rem; margin: 1rem 0; letter-spacing: 4px;">
               ${otp}
@@ -305,7 +322,7 @@ export class AuthServiceService {
           </div>
           <div style="padding: 2rem;">
             <p>Hi there,</p>
-            <p>You recently requested a password reset for your account on <strong>Gym solution</strong>.</p>
+            <p>You recently requested a password reset for your account on <strong>Auth kit</strong>.</p>
             <p style="margin-top: 1rem;">Your One-Time Password (OTP) is:</p>
             <div style="font-size: 2rem; font-weight: bold; background-color: #f3f4f6; padding: 1rem; text-align: center; border-radius: 0.5rem; margin: 1rem 0; letter-spacing: 4px;">
               ${otp}
