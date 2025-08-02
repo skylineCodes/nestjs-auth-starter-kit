@@ -88,7 +88,7 @@ export class AuthServiceController {
       status: 200,
       data: req.user,
     };
-
+    
     return response.status(response.statusCode).json(userResponse);
   }
 
