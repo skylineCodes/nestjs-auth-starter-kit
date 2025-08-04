@@ -1,11 +1,8 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { SessionSchema } from './models/session.schema';
-import { SessionRepository } from './repositories/session.repository';
-import { CreateSessionDto } from './dto/create-session.dto';
 import { Response } from 'express';
+import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
+import { SessionRepository } from './repositories/session.repository';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 
 @Injectable()
 export class SessionsService {
@@ -68,7 +65,7 @@ export class SessionsService {
     }
   }
 
-  async revokeSession(sessionId: string) {
+  async revokeSession(sessionId: any) {
     try {
       const sessions = await this.sessionsRepo.findOneAndUpdate({ _id: sessionId }, { revoked: true });
 

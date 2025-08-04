@@ -29,7 +29,7 @@ export class AuthServiceService {
         ...dto,
       };
 
-      const registerUser = await this.usersService.create(enrichedDto, response);
+      await this.usersService.create(enrichedDto, response);
   
       return {
         status: 200,
@@ -122,47 +122,49 @@ export class AuthServiceService {
   }
 
   async logout(dto: LogoutDto, request: Request | any, response: Response) {
-    const currentSessionId = request.cookies?.SessionId;
+    try {
+      const currentSessionId = request.cookies?.SessionId;
 
-    console.log('dto_session', dto);
-    
-    if (dto.sessionId) {
-      console.log('dto_session', dto);
-      // Logging out a different device — only revoke the session
-      await this.sessionsService.revokeSession(dto.sessionId);
-      
+      if (Boolean(dto.logoutAll) === true) {
+        // Revoke all sessions (including current one)
+        await this.sessionsService.revokeAllUserSessions(request?.user?._id);
+
+        // Only clear cookies for current device
+        response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
+        response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
+        response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
+
+        return {
+          status: 200,
+          message: 'Logged out all sessions successfully',
+        };
+      } else if (currentSessionId && dto.sessionId === null) {
+        // Revoke only the current session
+        await this.sessionsService.revokeSession(currentSessionId);
+
+        // Only clear cookies for current device
+        response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
+        response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
+        response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
+
+        return {
+          status: 200,
+          message: 'Logged out successfully',
+        };
+      } else {
+        // Logging out a different device — only revoke the session
+        await this.sessionsService.revokeSession(dto.sessionId);
+        
+        return {
+          status: 200,
+          message: 'Device session revoked successfully',
+        };
+      }
+    } catch(error) {
+      console.log(error);
       return {
-        status: 200,
-        message: 'Device session revoked successfully',
-      };
-    } else if (currentSessionId && dto.sessionId === null) {
-      console.log('currentSessionId', currentSessionId);
-      // Revoke only the current session
-      await this.sessionsService.revokeSession(currentSessionId);
-
-      // Only clear cookies for current device
-      response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
-      response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
-      response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
-
-      return {
-        status: 200,
-        message: 'Logged out successfully',
-      };
-    }
-
-    if (dto.logoutAll === true) {
-      // Revoke all sessions (including current one)
-      await this.sessionsService.revokeAllUserSessions(request?.user?._id);
-
-      // Only clear cookies for current device
-      response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
-      response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
-      response.clearCookie('SessionId', { path: '/', httpOnly: true, sameSite: 'strict' });
-
-      return {
-        status: 200,
-        message: 'Logged out all sessions successfully',
+        status: 500,
+        message: error.message,
       };
     }
   }

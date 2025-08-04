@@ -42,7 +42,21 @@ export class LoginActivityService {
   }
 
   async getLogsForUser(userId: string) {
-    return await this.loginActivityRepo.findOne({ userId: String(userId) });
+    try{
+      const loginActivity = await this.loginActivityRepo.findOne({ userId: String(userId) });
+
+      return {
+        status: 200,
+        data: loginActivity
+      };
+    } catch(error) {
+      console.log(error.message)
+
+      return {
+        status: 500,
+        message: error.message
+      }
+    }
   }
 
   async detectAnomaly(userId: string, ipAddress: string) {

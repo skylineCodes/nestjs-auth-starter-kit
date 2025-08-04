@@ -12,7 +12,7 @@ import { SessionsService } from './sessions/sessions.service';
 import { SessionsController } from './sessions/sessions.controller';
 import { SessionsModule } from './sessions/sessions.module';
 import { SessionMiddleware } from './sessions/middleware/session.middleware';
-import { SessionRepository } from './sessions/repositories/session.repository';
+import { PassportModule } from '@nestjs/passport';
 import { LoginActivityModule } from './login-activity/login-activity.module';
 
 @Module({
@@ -27,6 +27,7 @@ import { LoginActivityModule } from './login-activity/login-activity.module';
         JWT_ACCESS_EXPIRY: Joi.string().required()
       })
     }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -55,6 +56,7 @@ import { LoginActivityModule } from './login-activity/login-activity.module';
   ],
   controllers: [AuthServiceController, SessionsController],
   providers: [AuthServiceService, JwtStrategy],
+  exports: [PassportModule, JwtModule],
 })
 
 export class AuthServiceModule {

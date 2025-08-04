@@ -40,15 +40,15 @@ export class AuthServiceController {
   async refresh(@Req() req: Request, @Res() response: Response) {
     const userResponse = await this.authServiceService.refreshToken(req, response);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(200).json(userResponse);
   }
 
-  @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @Post('logout')
   async logout(@Req() request, @Res() response: Response) {
     const sessionId = request.headers['x-session-id'] as string;
 
-    const logoutAll = request.headers['x-logout-all'] as boolean;
+    const logoutAll = request.headers['x-logout-all'] === 'true';
 
     const payload: LogoutDto = {
       logoutAll,
@@ -57,28 +57,28 @@ export class AuthServiceController {
 
     const userResponse = await this.authServiceService.logout(payload, request, response);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Res() response: Response) {
     const userResponse = await this.authServiceService.forgotPassword(dto);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto, @Res() response: Response) {
     const userResponse = await this.authServiceService.resetPassword(dto);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 
   @Post('resend-reset-password')
   async resendResetPassword(@Body() dto: ResendResetPasswordDto, @Res() response: Response) {
     const userResponse = await this.authServiceService.resendResetOtp(dto);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -89,13 +89,14 @@ export class AuthServiceController {
       data: req.user,
     };
     
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('audit-logs/:userId')
-  async getUserAuditLogs(@Param('userId') userId: string) {
+  async getUserAuditLogs(@Param('userId') userId: string, @Res() response: Response) {
     const userResponse = await this.loginActivityService.getLogsForUser(userId);
 
-    return response.status(response.statusCode).json(userResponse);
+    return response.status(userResponse.status).json(userResponse);
   }
 }
