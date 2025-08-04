@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmpty, IsOptional, IsString } from 'class-validator';
 
 export class LogoutDto {
   @IsString()
@@ -7,7 +7,7 @@ export class LogoutDto {
   
   @IsString()
   @IsOptional()
-  sessionId: string;
+  sessionId?: string | null;
 
   @IsBoolean()
   logoutAll: boolean;

@@ -226,7 +226,9 @@ export class UsersService {
     try {
       const user: any = await this.getUserByEmail(email);
 
-      if (!user) throw new UnauthorizedException('User not found');
+      if (!user || !user.data) {
+        throw new UnauthorizedException('User not found');
+      }
 
       const isPasswordValid = await bcrypt.compare(password, user.data.passwordHash);
 

@@ -1,36 +1,39 @@
-FROM node:alpine As development
+# --- Development Stage ---
+FROM node:20-bullseye AS development
 
 WORKDIR /usr/src/app
 
+# Copy package files early for better caching
 COPY package*.json ./
 
-# Set npm timeout
-RUN npm config set fetch-retry-maxtimeout 60000
-RUN npm config set fetch-timeout 60000
+# Set npm timeouts to handle slow network issues
+RUN npm config set fetch-retry-maxtimeout 60000 \
+ && npm config set fetch-timeout 60000 \
+ && npm install -g npm@latest \
+ && npm install
 
-# RUN npm install -g @nestjs/cli
-
-RUN npm install
-
+# Copy remaining source files
 COPY . .
 
+# Build the project
 RUN npm run build
 
-FROM node:alpine As production
+
+# --- Production Stage ---
+FROM node:20-bullseye AS production
 
 ARG NODE_ENV=production
-
 ENV NODE_ENV=${NODE_ENV}
 
 WORKDIR /usr/src/app
 
+# Copy only package files and install production deps
 COPY package*.json ./
+RUN npm install -g npm@latest \
+ && npm install --omit=dev
 
-# RUN npm install -g @nestjs/cli
-
-RUN npm install -g npm \
-    && npm install --production
-
+# Copy built output from development stage
 COPY --from=development /usr/src/app/dist ./dist
 
+# Start the application
 CMD ["node", "dist/apps/auth-service/main"]
