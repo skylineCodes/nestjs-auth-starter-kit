@@ -268,34 +268,25 @@ export class UsersService {
   }
 
   async validateUserCredentialsByPhone(phone: string, password: string) {
-    try {
-      const user: any = await this.getUserByPhone(phone);
-      if (!user) throw new UnauthorizedException('User not found');
-
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
-
-      return {
-        status: 200,
-        data: user?.data
-      }
-    } catch (error) {
-      if (error.code === '11000') {
-        return {
-          status: 500,
-          message: error.message,
-        };
-      }
-
-      if (error instanceof UnprocessableEntityException) {
-        throw error;
-      }
-      
-      return {
-        status: 500,
-        message: error.message,
-      };
+    // Check if a user with the provided phone number exists.
+    const user: any = await this.getUserByPhone(phone);
+    // If the user's data is null, it means no user was found.
+    if (!user.data) {
+      throw new UnauthorizedException('User not found');
     }
+
+    // Compare the provided password with the user's hashed password.
+    const isPasswordValid = await bcrypt.compare(password, user.data.passwordHash);
+    // If the passwords do not match, throw an UnauthorizedException.
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // If validation is successful, return the user data.
+    return {
+      status: 200,
+      data: user.data
+    };
   }
 
   async updateLastLogin(userId: string) {
@@ -390,13 +381,15 @@ export class UsersService {
 
   async getAllUsers() {
     try {
-      const allUsers = this.userRepo.find();
+      // Await the asynchronous find() operation to get the user data
+      const allUsers = await this.userRepo.find();
 
       return {
         status: 200,
         data: allUsers,
       };
     } catch (error) {
+      // Handle duplicate key error (11000)
       if (error.code === '11000') {
         return {
           status: 500,
@@ -404,10 +397,12 @@ export class UsersService {
         };
       }
 
+      // Re-throw specific exceptions if necessary
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
       
+      // Handle other generic errors
       return {
         status: 500,
         message: error.message,
@@ -468,8 +463,8 @@ export class UsersService {
         session = await this.sessionsService.createSession({
           userId: user._id,
           ipAddress: ip,
-          userAgent: agent.toString(),
-          deviceName: agent.device.toString(),
+          userAgent: agent?.toString(),
+          deviceName: agent.device?.toString(),
           lastSeenAt: new Date(),
         }, response);
       }
