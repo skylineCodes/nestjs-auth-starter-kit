@@ -13,6 +13,7 @@ import { LoginActivityService } from '../login-activity/login-activity.service';
 
 @Injectable()
 export class UsersService {
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepo: UsersRepository,
@@ -443,6 +444,14 @@ export class UsersService {
     }
   }
 
+  /**
+   * Compare a raw refresh token to the stored hash
+   */
+  async compareRefreshTokenHash(token: string, storedHash?: string): Promise<boolean> {
+    if (!storedHash) return false;
+    return bcrypt.compare(token, storedHash);
+  }
+
   async setSessionToken(
     user: User | any,
     request: Request,
@@ -488,10 +497,11 @@ export class UsersService {
 
   async setRefreshToken(
     user: User | any,
+    sessionData: any,
     response: Response,
   ): Promise<void> {
     try {
-      const refreshToken = this.generateRefreshToken(user._id);
+      const refreshToken = this.generateRefreshToken(user._id, user.type, sessionData?._id.toString());
 
       const refreshExpiry = parseInt(
         this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
@@ -550,19 +560,24 @@ export class UsersService {
     )
   }
 
-  private generateRefreshToken(userId: string) {
+  private async generateRefreshToken(userId: string, type: any, sessionId: string) {
     const expiryInSeconds = parseInt(
       this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
       10
     );
 
-    return this.jwtService.sign(
-      { sub: userId },
+    const newHash = this.jwtService.sign(
+      { sub: userId, type, sessionId },
       {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
         expiresIn: expiryInSeconds
       },
     )
+
+    // Update session with the new refresh token hash
+    await this.sessionsService.updateSession(sessionId, { currentRefreshHash: newHash, lastSeenAt: new Date(), revoked: false });
+
+    return String(newHash);
   }
 
   generateResetToken(userId: string) {

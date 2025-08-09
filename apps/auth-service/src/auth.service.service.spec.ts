@@ -24,6 +24,10 @@ const mockUsersService = {
 
 const mockSessionsService = {
   revokeSession: jest.fn(),
+  getById: jest.fn().mockResolvedValue({
+    status: 200,
+    data: { _id: 'sess-123', userId: 'user123' }
+  }),
   revokeAllUserSessions: jest.fn(),
 };
 
@@ -69,6 +73,7 @@ describe('AuthServiceService', () => {
   let service: AuthServiceService;
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthServiceService,
@@ -97,7 +102,11 @@ describe('AuthServiceService', () => {
     });
 
     it('should throw conflict or bad request exception', async () => {
-      mockUsersService.create.mockImplementation(() => {
+      // mockUsersService.create.mockImplementation(() => {
+      //   throw new ConflictException('User exists');
+      // });
+
+      mockUsersService.create.mockImplementationOnce(() => {
         throw new ConflictException('User exists');
       });
 
@@ -309,12 +318,13 @@ describe('AuthServiceService', () => {
   describe('refreshToken', () => {
     it('should refresh token if valid', async () => {
       const req = mock<Request>();
+      const sessionId = "session-2345"
       req.cookies = { refreshToken: 'my-token' };
       req.user = { _id: 'user123' } as any;
 
       const res = {} as Response;
 
-      mockUsersService.verifyRefreshToken.mockResolvedValue({ sub: '1', type: 'user' });
+      mockUsersService.verifyRefreshToken.mockResolvedValue({ sub: '1', sessionId, type: 'user' });
       mockUsersService.setSessionToken.mockResolvedValue({ data: 'session-data' });
 
       const result = await service.refreshToken(req, res);

@@ -1,4 +1,4 @@
-import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -13,6 +13,7 @@ import { LoginActivityService } from './login-activity/login-activity.service';
 import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { MeResponseDto } from './dto/profile-response.dto';
 import { LoginHistoryResponseDto } from './login-activity/dto/create-login-activity.dto/create-login-activity.dto';
+import { RefreshResponseDto } from './users/dto/refresh-response.dto';
 
 @Controller('auth')
 export class AuthServiceController {
@@ -53,10 +54,16 @@ export class AuthServiceController {
 
   @ApiTags('Auth')
   @Post('refresh')
-  @ApiOperation({ summary: 'Refresh Token' })
-  @ApiResponse({
-    status: 200,
-    description: 'Refresh token generated successfully!'
+  @ApiCookieAuth('refreshToken')
+  @ApiOperation({ summary: 'Rotate refresh token and issue new session/access cookies' })
+  @ApiOkResponse({
+    type: RefreshResponseDto,
+    schema: {
+      example: {
+        status: 200,
+        message: 'Refresh token generated successfully!'
+      }
+    }
   })
   async refresh(@Req() req: Request, @Res() response: Response) {
     const userResponse = await this.authServiceService.refreshToken(req, response);
