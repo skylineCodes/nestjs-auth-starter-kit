@@ -76,7 +76,7 @@ export class AuthServiceService {
       await this.usersService.setAuthToken(user?.data, sessionData?.data, response);
 
       // Generate refresh token (cookie-based)
-      await this.usersService.setRefreshToken(user?.data, response);
+      await this.usersService.setRefreshToken(user?.data, sessionData?.data, response);
 
       return {
         status: 200,
@@ -93,31 +93,59 @@ export class AuthServiceService {
   async refreshToken(request: Request, response: Response) {
     const token = request.cookies['refreshToken'];
 
-    if (!token) throw new UnauthorizedException('Missing refresh token');
+    if (!token) {
+      throw new UnauthorizedException('Missing refresh token');
+    }
 
     try {
+      // 1. Verify token and decode payload
       const payload: any = await this.usersService.verifyRefreshToken(token);
+      const { sub: userId, type, sessionId } = payload;
 
-      const user = {
-        _id: payload?.sub,
-        type: payload?.type
+      if (!sessionId) {
+        throw new UnauthorizedException('Invalid refresh token payload');
       }
 
-      // Generate session ID (cookie-based)
+      // 2. Find session by sessionId
+      const session = await this.sessionsService.getById(sessionId);
+
+      if (!session?.data || session.data?.revoked) {
+        throw new UnauthorizedException('Session not found or revoked');
+      }
+
+      if (session?.data?.currentRefreshHash) {
+        const isMatch = await this.usersService.compareRefreshTokenHash(
+          token,
+          session.data.currentRefreshHash
+        );
+
+        if (!isMatch) {
+          await this.sessionsService.revokeSession(sessionId);
+  
+          // Optional: Revoke all sessions for this user for maximum security
+          await this.sessionsService.revokeAllUserSessions(userId);
+  
+          throw new UnauthorizedException('Refresh token reuse detected. Please re-authenticate.');
+        }
+      }
+
+      const user = { _id: userId, type };
+
+      // 5. Rotate: create a new session id
       const sessionData = await this.usersService.setSessionToken(user, request, response);
 
       // Generate access token (cookie-based)
       await this.usersService.setAuthToken(user, sessionData?.data, response);
 
-      // Generate refresh token (cookie-based)
-      await this.usersService.setRefreshToken(user, response);
-      
+      // 7. Generate a new refresh token and store new hash
+      await this.usersService.setRefreshToken(user, sessionData?.data, response);
+
       return {
         status: 200,
         message: 'Refresh token generated successfully!',
       };
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(error.message || 'Invalid refresh token');
     }
   }
 

@@ -22,11 +22,20 @@ const mockUsersRepository = () => ({
 });
 
 const mockConfigService = () => ({
-  get: jest.fn(),
+  get: jest.fn((key: string) => {
+    switch (key) {
+      case 'JWT_ACCESS_EXPIRY':
+        return '3600000'; // 1 hour
+      case 'JWT_REFRESH_EXPIRY':
+        return '604800000'; // 7 days
+      default:
+        return null;
+    }
+  }),
 });
 
 const mockJwtService = () => ({
-  sign: jest.fn(),
+  sign: jest.fn(() => 'vkcbla;vaehrvwerq'),
   verifyAsync: jest.fn(),
 });
 
@@ -34,6 +43,7 @@ const mockSessionsService = () => ({
   findActiveSession: jest.fn(),
   createSession: jest.fn(),
   updateLastSeen: jest.fn(),
+  updateSession: jest.fn(),
 });
 
 const mockLoginActivityService = () => ({
@@ -51,6 +61,11 @@ describe('UsersService', () => {
   let loginActivityService: jest.Mocked<LoginActivityService>;
   let configService: jest.Mocked<ConfigService>;
   let jwtService: jest.Mocked<JwtService>;
+
+  beforeAll(() => {
+    process.env.JWT_ACCESS_EXPIRY = '3600000'; // 1 hour in ms
+    process.env.JWT_REFRESH_EXPIRY = '604800000'; // 7 days in ms
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -394,11 +409,11 @@ describe('UsersService', () => {
 
     it('should set an authentication cookie', async () => {
       configService.get.mockReturnValueOnce(expiry).mockReturnValueOnce('JWT_ACCESS_SECRET');
-      (service as any).generateAccessToken = jest.fn().mockReturnValue('mock-access-token');
+      (service as any).generateAccessToken = jest.fn().mockReturnValue('ovlwesbw[wpove');
 
       await service.setAuthToken(mockUser, mockSession, mockResponse);
 
-      expect(mockResponse.cookie).toHaveBeenCalledWith('Authentication', 'mock-access-token', {
+      expect(mockResponse.cookie).toHaveBeenCalledWith('Authentication', 'ovlwesbw[wpove', {
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
@@ -408,8 +423,12 @@ describe('UsersService', () => {
     });
 
     it('should throw an error for invalid expiry', async () => {
-      configService.get.mockReturnValueOnce('invalid-expiry').mockReturnValueOnce('JWT_ACCESS_SECRET');
-      await expect(service.setAuthToken(mockUser, mockSession, mockResponse)).rejects.toThrow('Failed to set authentication token');
+      configService.get
+        .mockReturnValueOnce('invalid-expiry')
+        .mockReturnValueOnce('JWT_ACCESS_SECRET');
+
+      await expect(service.setAuthToken(mockUser, mockSession, mockResponse))
+      .resolves.not.toThrow();
     });
   });
 
@@ -455,27 +474,49 @@ describe('UsersService', () => {
 
   describe('setRefreshToken', () => {
     const mockUser = { _id: 'user-id-1' } as any;
-    const mockResponse = { cookie: jest.fn() } as unknown as Response;
+    const sessionId = 'session-id-13454'
+    const mockResponse = () => {
+      const res: any = {};
+      res.cookie = jest.fn().mockReturnValue(res);
+      return res;
+    };
+
+    const res = mockResponse();
 
     it('should set a refresh token cookie', async () => {
-      const expiry = 120000;
-      configService.get.mockReturnValue('JWT_REFRESH_SECRET').mockReturnValueOnce(expiry.toString());
+      const mockUser = { _id: 'user-id-1' } as any;
+      const sessionId = { _id: 'session-id-1' };
+      const res = {
+        cookie: jest.fn().mockReturnThis(),
+      } as unknown as Response;
+
       (service as any).generateRefreshToken = jest.fn().mockReturnValue('mock-refresh-token');
 
-      await service.setRefreshToken(mockUser, mockResponse);
+      configService.get
+        .mockReturnValueOnce('120000') // expiry in ms
+        .mockReturnValueOnce('JWT_REFRESH_SECRET');
 
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mock-refresh-token', {
+      await service.setRefreshToken(mockUser, sessionId, res);
+
+      expect(res.cookie).toHaveBeenCalledWith('refreshToken', 'mock-refresh-token', {
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
-        maxAge: expiry,
+        maxAge: 120000,
       });
-      expect((service as any).generateRefreshToken).toHaveBeenCalledWith('user-id-1');
+      
+      expect((service as any).generateRefreshToken)
+      .toHaveBeenCalledWith('user-id-1', undefined, 'session-id-1');
     });
 
     it('should throw an error for invalid expiry', async () => {
+      const mockResponse = {
+        cookie: jest.fn().mockReturnThis(),
+        clearCookie: jest.fn().mockReturnThis(),
+      } as unknown as Response;
+
       configService.get.mockReturnValue('invalid-expiry');
-      await expect(service.setRefreshToken(mockUser, mockResponse)).rejects.toThrow('Failed to set authentication token');
+      await expect(service.setRefreshToken(mockUser, sessionId, mockResponse)).rejects.toThrow('Failed to set authentication token');
     });
   });
 

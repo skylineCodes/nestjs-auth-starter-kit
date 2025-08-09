@@ -1,98 +1,160 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+# 🚀 NestJS Authentication Kit
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+A production-ready authentication and authorization starter kit for NestJS, pre-configured with **secure cookie-based sessions**, **refresh token rotation**,  **email verification**, and **device/session tracking** — all running seamlessly in **Docker** with **NGINX** as a reverse proxy.
 
-## Description
+This kit includes **database abstraction layers** for **MongoDB** (via Mongoose) and **MariaDB** (via TypeORM). MongoDB is the default, but you can switch to MariaDB with minimal changes.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+No need to worry about ports — just access your API via `http://localhost/auth/`.
 
-## Project setup
+## 📌 Features
 
-```bash
-$ npm install
+- 🔐 **Secure cookie-based authentication** (HttpOnly, Secure cookies — no JWT in localStorage)
+- 🔁 **Refresh token rotation** with revocation: rotated refresh tokens on each use to protect against replay attacks
+- 📧 Email verification & password reset via OTP
+- 📱 Session management with device tracking and session revocation
+- 🖥 Integrated **NGINX reverse proxy** for clean URLs (`http://localhost/auth/`) — no ports required
+- 🐳 **Docker & docker-compose** setup for instant local development
+- 🚀 One-command build & start process (`docker-compose up --build -d`)
+- 📜 Swagger API documentation at `/auth/docs`
+- 🗄 **Database abstraction layer** for:
+  - **MongoDB** with Mongoose (default)
+  - **MariaDB** with TypeORM (plug-and-play)
+- 🔌 Plugin-extensible architecture for custom auth strategies and providers
+
+## 🔁 Refresh Token Rotation (with session regeneration)
+
+This kit implements **refresh token rotation with session regeneration** to minimize the impact of stolen refresh tokens and detect replay attacks.
+
+High-level flow (what happens on `POST /auth/refresh`):
+
+1. The client sends the existing refresh token (HttpOnly cookie) to `/auth/refresh`.
+2. The server verifies the refresh token and extracts the payload (user id, token type, session id, etc.).
+3. The server **creates a new session id** (server-side session entry) and persists it (device info, ip, current refresh token hash, etc.). This step is performed by `setSessionToken(...)`.
+4. The server issues a new access token and sets it as a (HttpOnly) cookie using `setAuthToken(...)`. The access token is tied to the **new session id**.
+5. The server generates a **new refresh token**, stores a hash of it against the new session entry, and sets it as a (HttpOnly) cookie using `setRefreshToken(...)`.
+6. The server returns a success response (e.g. `{ status: 200, message: 'Refresh token generated successfully!' }`).
+
+**Why regenerate session id?**
+- Rotating session id on refresh ties newly-issued tokens to a fresh server-side session record. If an attacker reuses an old refresh token, you can detect that the token’s session id no longer matches the most recent session record and revoke the session(s) immediately.
+- Regenerating session id reduces attack window and simplifies detection/forensics (you always know which session is newest).
+
+**Important security rules**
+- Persist the new session record (and the hash of the new refresh token or new jti) *before* you set cookies on the client — this avoids race conditions where a client holds a cookie for which no server-side session exists.
+- If you detect reuse of an old refresh token (incoming refresh token does not match the stored hash/jti), **revoke the whole session (or optionally all user sessions)** and require re-login.
+- Use short-lived access tokens (e.g., 10–15 minutes) and rotate refresh tokens frequently (e.g., 30 days expiry).
+- Cookies should be `HttpOnly`, `Secure` (in production), and use an appropriate `SameSite` policy.
+
+## Installation
+
+```
+# Clone the repository
+
+git clone https://github.com/skylineCodes/nestjs-auth-starter-kit
+
+# Navigate into the project
+
+cd nestjs-auth-starter-kit
+
+# Build and start using Docker Compose
+docker-compose up --build -d
+
 ```
 
-## Compile and run the project
+## 🚀 Running the API
+Once `docker-compose` is up, the API will be available via **NGINX** at:
 
-```bash
-# development
-$ npm run start
+```
+http://localhost/auth/
+```
+No port is required in the URL — NGINX handles the proxy and routing.
 
-# watch mode
-$ npm run start:dev
+## 📜 API Documentation
+Swagger docs are available at:
 
-# production mode
-$ npm run start:prod
+```
+http://localhost:3001/auth-service-docs/
 ```
 
-## Run tests
+## 🛡 Security Considerations
 
-```bash
-# unit tests
-$ npm run test
+-   Always use **Secure** cookies in production (`COOKIE_SECURE=true`)
+-   Keep your `.env` file out of version control
+-   Rotate your JWT secret periodically
+-   Use HTTPS in production with NGINX TLS configuration
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+## 🧪 Testing
+``` 
+npm run test 
 ```
 
-## Deployment
+## 📄 License
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+MIT License — feel free to use, modify, and distribute with attribution.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 🤝 Contributing
 
-```bash
-$ npm install -g mau
-$ mau deploy
+We welcome contributions from the community!  
+Whether it's bug fixes, new features, or improving documentation, your help is appreciated.
+
+### 📝 How to Contribute
+
+1.  **Fork the repository**  
+    Click the **Fork** button on GitHub to create your own copy.
+    
+2.  **Clone your fork locally**
+```
+git clone https://github.com/skylineCodes/nestjs-auth-starter-kit
+
+cd nestjs-auth-starter-kit
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+3. **Create a new branch**  
+Use a descriptive name for your branch:
+```
+git checkout -b feature/add-password-reset
+```
 
-## Resources
+4.  **Make your changes**
+    
+    -   Follow the coding style guidelines.
+        
+    -   Ensure all tests pass (`npm run test` inside the container).
+        
+    -   Update/add documentation if necessary.
+        
+5.   **Commit your changes**
+```
+git commit -m "Add password reset functionality"
+```
+6.   **Push to your fork**
+```
+git push origin feature/add-password-reset
+```
+7. **Create a Pull Request**  
+Go to your fork on GitHub and open a pull request to the `main` branch of this repo.
 
-Check out a few resources that may come in handy when working with NestJS:
+### 📏 Coding Style
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+-   Use **Prettier** for formatting and **ESLint** for linting.
+    
+-   Follow NestJS module structure (controllers, services, DTOs, entities/schemas).
+    
+-   Keep functions small and focused — single responsibility principle.
+    
+-   Use TypeScript types/interfaces everywhere possible.
 
-## Support
+### 🔀 Branching Strategy
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+We follow a simplified **Git Flow**:
 
-## Stay in touch
+-   **main** → Production-ready code only
+    
+-   **develop** → Integration branch for testing before merging into `main`
+    
+-   **feature/** → New features (merge into `develop`)
+    
+-   **bugfix/** → Fixes for existing code
+    
+-   **hotfix/** → Urgent fixes for production (merge into `main` and `develop`)
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

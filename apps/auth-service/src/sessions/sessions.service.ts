@@ -7,13 +7,13 @@ import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 @Injectable()
 export class SessionsService {
   constructor(
-      private readonly sessionsRepo: SessionRepository,
-    ) {}
+    private readonly sessionsRepo: SessionRepository,
+  ) { }
 
   async createSession(dto: CreateSessionDto, response: Response) {
     try {
       const newSession = await this.sessionsRepo.create({ ...dto, lastSeenAt: new Date(), } as any);
-      
+
       return {
         status: 200,
         message: 'Session created successfully!',
@@ -30,7 +30,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -57,7 +57,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -84,7 +84,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -111,7 +111,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -138,7 +138,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -165,7 +165,7 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
@@ -197,13 +197,13 @@ export class SessionsService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      
+
       return {
         status: 500,
         message: error.message,
       };
     }
-  }  
+  }
 
   async updateLastSeen(sessionId: string, timestamp: Date): Promise<void> {
     try {
@@ -213,7 +213,6 @@ export class SessionsService {
       );
 
       return;
-    } catch (error) {}
+    } catch (error) { }
   }
-  
 }

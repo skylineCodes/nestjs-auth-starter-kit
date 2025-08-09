@@ -9,6 +9,10 @@ export class UpdateSessionDto {
   @IsOptional()
   revoked?: boolean;
 
+  @IsString()
+  @IsOptional()
+  currentRefreshHash?: string;
+
   @IsDate()
   @IsOptional()
   lastSeenAt?: Date;

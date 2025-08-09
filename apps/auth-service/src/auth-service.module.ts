@@ -24,7 +24,7 @@ import { LoginActivityModule } from './login-activity/login-activity.module';
       validationSchema: Joi.object({
         PORT: Joi.number().required(),
         JWT_ACCESS_SECRET: Joi.string().required(),
-        JWT_ACCESS_EXPIRY: Joi.string().required()
+        JWT_ACCESS_EXPIRY: Joi.string().required(),
       })
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),

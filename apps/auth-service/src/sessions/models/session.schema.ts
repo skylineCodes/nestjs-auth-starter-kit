@@ -6,12 +6,14 @@ export class Session extends AbstractDocument {
   @Prop({ required: true })
   userId: string;
 
+  @Prop() deviceName: string;
+
   @Prop({ required: true })
   ipAddress: string;
 
   @Prop() userAgent: string;
 
-  @Prop() deviceName: string;
+  @Prop({ type: String, default: null }) currentRefreshHash?: string | null;
 
   @Prop() location?: string;
 
