@@ -43,7 +43,7 @@ export class LoginActivityService {
 
   async getLogsForUser(userId: string) {
     try{
-      const loginActivity = await this.loginActivityRepo.findOne({ userId: String(userId) });
+      const loginActivity = await this.loginActivityRepo.find({ userId: String(userId) });
 
       return {
         status: 200,

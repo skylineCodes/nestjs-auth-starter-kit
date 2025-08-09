@@ -63,7 +63,7 @@ export class AuthServiceService {
           ipAddress: request?.ip,
           userAgent: request.get('User-Agent'),
           location,
-          isNewLocation
+          isNewLocation,
         });
       }
 
