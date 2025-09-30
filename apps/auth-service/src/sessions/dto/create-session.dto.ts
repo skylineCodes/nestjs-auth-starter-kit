@@ -1,4 +1,4 @@
-import { IsBoolean, IsDate, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsDate, IsObject, IsOptional, IsString } from "class-validator";
 
 export class CreateSessionDto {
   @IsString()
@@ -11,13 +11,25 @@ export class CreateSessionDto {
   @IsOptional()
   userAgent?: string;
 
-  @IsString()
+  @IsObject()
   @IsOptional()
-  deviceName?: string;
+  location?: {
+    country?: string;
+    city?: string;
+    region?: string;
+  };
 
-  @IsString()
+  @IsObject()
   @IsOptional()
-  location?: string;
+  deviceName?: {
+    browser?: string;
+    os?: string;
+    type?: string;
+  };
+
+  // @IsString()
+  // @IsOptional()
+  // location?: string;
 
   @IsBoolean()
   @IsOptional()

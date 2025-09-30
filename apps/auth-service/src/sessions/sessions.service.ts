@@ -44,6 +44,7 @@ export class SessionsService {
 
       return {
         status: 200,
+        count: sessions?.length,
         data: sessions
       }
     } catch (error) {
@@ -177,8 +178,8 @@ export class SessionsService {
     try {
       const session = await this.sessionsRepo.findOne({
         userId,
-        ip,
-        userAgent,
+        // ip,
+        // userAgent,
         revoked: false,
       });
 

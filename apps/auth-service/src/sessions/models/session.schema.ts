@@ -6,7 +6,14 @@ export class Session extends AbstractDocument {
   @Prop({ required: true })
   userId: string;
 
-  @Prop() deviceName: string;
+  // @Prop() deviceName: string;
+
+  @Prop({ type: Object })
+  deviceName?: {
+    browser?: string;
+    os?: string;
+    type?: string; // mobile, tablet, desktop, etc.
+  };
 
   @Prop({ required: true })
   ipAddress: string;
@@ -15,7 +22,14 @@ export class Session extends AbstractDocument {
 
   @Prop({ type: String, default: null }) currentRefreshHash?: string | null;
 
-  @Prop() location?: string;
+  // @Prop() location?: string;
+
+  @Prop({ type: Object })
+  location?: {
+    country?: string;
+    city?: string;
+    region?: string;
+  };
 
   @Prop({ default: false }) isCurrentDevice: boolean;
 

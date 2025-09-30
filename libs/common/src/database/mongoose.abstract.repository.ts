@@ -94,9 +94,43 @@ export abstract class MongooseAbstractRepository<TDocument extends AbstractDocum
     }
   }
 
-  async find(filterQuery: FilterQuery<TDocument> = {}): Promise<TDocument[]> {
+  // async find(filterQuery: FilterQuery<TDocument> = {}): Promise<TDocument[]> {
+  //   try {
+  //     return this.model.find(filterQuery).sort({ createdAt: -1 }).select('-password').lean<TDocument[]>(true);
+  //   } catch (error) {
+  //     throw new NotFoundException(error);
+  //   }
+  // }
+
+  async find(
+    filterQuery: FilterQuery<TDocument> = {},
+    options?: {
+      sort?: Record<string, 1 | -1>,
+      page?: number,
+      pageSize?: number,
+      select?: string | object
+    }
+  ): Promise<TDocument[]> {
     try {
-      return this.model.find(filterQuery).select('-password').lean<TDocument[]>(true);
+      const { sort = { createdAt: -1 }, page, pageSize } = options ?? {};
+
+      const query = this.model.find(filterQuery);
+
+      console.log(sort); 
+      // apply sort
+      query.sort(sort).select('-password');
+
+      // optional select
+      // if (select) query.select(select);
+
+      // optional pagination
+      if (page && pageSize) {
+        const skip = Math.max(0, (page - 1) * pageSize);
+        query.skip(skip).limit(pageSize);
+      }
+
+      // execute and return plain JS objects
+      return await query.lean<TDocument[]>(true).exec();
     } catch (error) {
       throw new NotFoundException(error);
     }

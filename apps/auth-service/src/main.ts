@@ -1,4 +1,4 @@
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
@@ -22,6 +22,12 @@ async function bootstrap() {
    
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+  // Get raw Express app
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  // Trust proxy (so X-Forwarded-For works)
+  expressApp.set('trust proxy', true);
 
   // Use Winston as the logger
   // app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));

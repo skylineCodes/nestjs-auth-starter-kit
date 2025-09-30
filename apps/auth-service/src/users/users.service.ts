@@ -1,5 +1,5 @@
 import * as bcrypt from 'bcrypt';
-import * as useragent from 'useragent';
+import * as UAParser from 'ua-parser-js';
 import { User } from './models/user.schema';
 import { Request, Response } from 'express';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -234,14 +234,6 @@ export class UsersService {
       const isPasswordValid = await bcrypt.compare(password, user.data.passwordHash);
 
       if (!isPasswordValid) {
-        await this.loginActivityService.logActivity({
-          userId: user?.data?._id,
-          status: 'failed',
-          ipAddress: request?.ip,
-          userAgent: request?.get('User-Agent'),
-          reason: 'Invalid credentials'
-        });
-
         throw new UnauthorizedException('Invalid credentials');
       }
 
@@ -419,21 +411,12 @@ export class UsersService {
     try {
       const accessToken = this.generateAccessToken(user._id, user.type, sessionData?._id.toString());
 
-      const accessTokenExpiry = parseInt(
-        this.configService.get<string>('JWT_ACCESS_EXPIRY') as any,
-        10
-      );
-      
-      if (isNaN(accessTokenExpiry)) {
-        throw new Error('JWT_ACCESS_EXPIRY must be a number (in ms)');
-      }
-
       response.cookie('Authentication', accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
         // maxAge: 60 * 1000 // 60 seconds
-        maxAge: accessTokenExpiry,
+        // maxAge: accessTokenExpiry,
       });
 
       return;
@@ -459,30 +442,45 @@ export class UsersService {
   ): Promise<any> {
     try {
       // Save session
-      const ip = request.ip || request?.connection.remoteAddress;
-      const agent = useragent.parse(request.headers['user-agent']);
+      const forwarded = request.headers['x-forwarded-for'] as string;
+      const ip = forwarded ? forwarded.split(',')[0].trim() : request.socket.remoteAddress;
+
+      const userAgent = request.get('User-Agent');
+  
+      const parser = new UAParser.UAParser(request.headers['user-agent']);
+      const uaResult = parser.getResult();
 
       const existingSession = await this.sessionsService.findActiveSession(user._id, request.ip, request.headers['user-agent']);
 
       let session: any;
 
+      // console.log('existingSession', existingSession);
+
       if (existingSession?.data !== null) {
         session = existingSession;
       } else {
+        const geo = await this.loginActivityService.lookupIp(ip as string);
+        const locationDetails = { country: geo.country, city: geo.city, region: geo.region }
+        
         session = await this.sessionsService.createSession({
           userId: user._id,
           ipAddress: ip,
-          userAgent: agent?.toString(),
-          deviceName: agent.device?.toString(),
+          userAgent,
+          deviceName: {
+            browser: uaResult.browser.name,
+            os: uaResult.os.name,
+            type: uaResult.device.type || 'desktop'
+          },
+          location: locationDetails ?? undefined,
           lastSeenAt: new Date(),
         }, response);
       }
 
-      response.cookie('SessionId', session.data?._id, {
+      response.cookie('SessionId', session.data?._id.toString(), {
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
       return {
@@ -501,23 +499,25 @@ export class UsersService {
     response: Response,
   ): Promise<void> {
     try {
-      const refreshToken = this.generateRefreshToken(user._id, user.type, sessionData?._id.toString());
+      const refreshToken = await this.generateRefreshToken(user._id, user.type, sessionData?._id.toString());
 
-      const refreshExpiry = parseInt(
-        this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
-        10
-      );
+      // const refreshExpiry = parseInt(
+      //   this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
+      //   10
+      // );
       
-      if (isNaN(refreshExpiry)) {
-        throw new Error('JWT_REFRESH_EXPIRY must be a number (in ms)');
-      }
+      // if (isNaN(refreshExpiry)) {
+      //   throw new Error('JWT_REFRESH_EXPIRY must be a number (in ms)');
+      // }
+
+      // console.log('New refreshToken issued at:', new Date(), refreshToken);
       
       response.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'strict',
         // maxAge: 120 * 1000 // 120 milliseconds
-        maxAge: refreshExpiry,
+        // maxAge: refreshExpiry,
       });
 
       return;
@@ -532,16 +532,51 @@ export class UsersService {
     token: any,
   ): Promise<void> {
     try {
-      const payload = this.jwtService.verifyAsync(
-        token,
+      const decodedToken = decodeURIComponent(token);
+      const payload = this.jwtService.verify(
+        decodedToken,
         {
           secret: this.configService.get('JWT_REFRESH_SECRET'),
+          ignoreExpiration: true,
         },
-      )
+      );
+
+      const now = Math.floor(Date.now() / 1000); // current time in seconds
+
+      // console.log(Date.now().toString());
+      // console.log(new Date(payload.exp * 1000).toString());
+
+      if (payload.exp && payload.exp < now) {
+        throw new Error('Token has expired');
+      }
 
       return payload;
     } catch (error) {
       throw new Error('Invalid refresh token');
+    }
+  }
+
+  async verifyToken(
+    token: any,
+  ): Promise<void> {
+    try {
+      const payload = this.jwtService.verify(token, {
+        secret: this.configService.get('JWT_ACCESS_SECRET'),
+        ignoreExpiration: true,
+      });
+
+      const now = Math.floor(Date.now() / 1000); // current time in seconds
+
+      // console.log(Date.now().toString());
+      // console.log(new Date(payload.exp * 1000).toString());
+
+      if (payload.exp && payload.exp < now) {
+        throw new Error('Token has expired');
+      }
+
+      return payload;
+    } catch (error) {
+      throw new Error('Invalid or expired token');
     }
   }
 
@@ -555,7 +590,8 @@ export class UsersService {
       { sub: userId, type, sessionId },
       {
         secret: this.configService.get('JWT_ACCESS_SECRET'),
-        expiresIn: expiryInSeconds
+        // expiresIn: '2m'
+        expiresIn: this.configService.get('JWT_ACCESS_EXPIRY'),
       },
     )
   }
@@ -564,13 +600,13 @@ export class UsersService {
     const expiryInSeconds = parseInt(
       this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
       10
-    );
+    ); 
 
     const newHash = this.jwtService.sign(
       { sub: userId, type, sessionId },
       {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
-        expiresIn: expiryInSeconds
+        expiresIn: this.configService.get('JWT_REFRESH_EXPIRY'),
       },
     )
 

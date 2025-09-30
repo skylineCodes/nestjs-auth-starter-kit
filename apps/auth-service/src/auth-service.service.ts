@@ -1,5 +1,6 @@
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
+import * as UAParser from 'ua-parser-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import { LogoutDto } from './dto/logout.dto';
@@ -49,28 +50,75 @@ export class AuthServiceService {
   }
 
   async login(dto: LoginDto, request: Request, response: Response) {
+    const forwarded = request.headers['x-forwarded-for'] as string;
+    const ip = forwarded ? forwarded.split(',')[0].trim() : request.socket.remoteAddress;
+    
+    const userAgent = request.get('User-Agent');
+
+    const parser = new UAParser.UAParser(request.headers['user-agent']);
+    const uaResult = parser.getResult();
+
     try {
       const user: any = await this.usersService.validateUserCredentialsByEmail(dto.email, dto.password, request);
 
-      if (user?.status !== 200 || user?.data === null) throw new Error(user?.message);
-
-      if (request?.ip) {
-      const { location, isNewLocation } = await this.loginActivityService.detectAnomaly(user?.data?._id, request?.ip);
-
+      if (user?.status !== 200 || user?.data === null) {
+        // Invalid login attempt - log failed attempt
         await this.loginActivityService.logActivity({
-          userId: user?.data?._id,
-          status: 'success',
-          ipAddress: request?.ip,
-          userAgent: request.get('User-Agent'),
-          location,
-          isNewLocation,
+          userId: user?.data?._id ?? null,
+          status: 'failed',
+          ipAddress: ip,
+          userAgent,
+          device: {
+            browser: uaResult.browser.name,
+            os: uaResult.os.name,
+            type: uaResult.device.type || 'desktop'
+          },
+          reason: user?.message || 'Invalid credentials',
+          isSuspicious: true,
         });
+
+        throw new Error(user?.message || 'Invalid login credentials');
       }
+
+      let location: {
+        country?: string;
+        city?: string;
+        region?: string;
+      } | null = null;
+
+      let isNewLocation: any;
+      let device: any;
+
+      if (ip) {
+        const anomaly = await this.loginActivityService.detectAnomaly(user?.data?._id, ip, userAgent);
+        // console.log('anomaly', anomaly);
+
+        location = {
+          country: anomaly.location?.country,
+          city: anomaly.location?.city,
+          region: anomaly.location?.region,
+        }
+        isNewLocation = anomaly.isNewLocation;
+        device = anomaly.device;
+      }
+
+      await this.loginActivityService.logActivity({
+        userId: user?.data?._id,
+        status: 'success',
+        ipAddress: ip,
+        userAgent,
+        location: location ?? undefined,
+        device: device,
+        isNewLocation,
+        isSuspicious: isNewLocation, // suspicious if new location
+      });
 
       await this.usersService.updateLastLogin(user?.data._id);
       
       // Generate session ID (cookie-based)
       const sessionData = await this.usersService.setSessionToken(user?.data, request, response);
+
+      // console.log('session data', sessionData);
 
       // Generate access token (cookie-based)
       await this.usersService.setAuthToken(user?.data, sessionData?.data, response);
@@ -90,6 +138,24 @@ export class AuthServiceService {
     }
   }
 
+  async validateAccessToken(token: string) {
+    try {
+      const validateToken = await this.usersService.verifyToken(token);
+
+      console.log('validateToken', validateToken);
+
+      return {
+        status: 200,
+        data: validateToken,
+      };
+    } catch(error) {
+      return {
+        status: 500,
+        message: error.message,
+      };
+    }
+  }
+
   async refreshToken(request: Request, response: Response) {
     const token = request.cookies['refreshToken'];
 
@@ -100,6 +166,7 @@ export class AuthServiceService {
     try {
       // 1. Verify token and decode payload
       const payload: any = await this.usersService.verifyRefreshToken(token);
+      // console.log('refreshToken was requested at:', new Date(), token);
       const { sub: userId, type, sessionId } = payload;
 
       if (!sessionId) {
@@ -108,6 +175,8 @@ export class AuthServiceService {
 
       // 2. Find session by sessionId
       const session = await this.sessionsService.getById(sessionId);
+
+      // console.log('new session', session?.data);
 
       if (!session?.data || session.data?.revoked) {
         throw new UnauthorizedException('Session not found or revoked');
@@ -119,14 +188,15 @@ export class AuthServiceService {
           session.data.currentRefreshHash
         );
 
-        if (!isMatch) {
-          await this.sessionsService.revokeSession(sessionId);
+        // if (!isMatch) {
+        //   console.log('refreshToken mismatched');
+        //   await this.sessionsService.revokeSession(sessionId);
   
-          // Optional: Revoke all sessions for this user for maximum security
-          await this.sessionsService.revokeAllUserSessions(userId);
+        //   // Revoke all sessions for this user for maximum security
+        //   await this.sessionsService.revokeAllUserSessions(userId);
   
-          throw new UnauthorizedException('Refresh token reuse detected. Please re-authenticate.');
-        }
+        //   throw new UnauthorizedException('Refresh token reuse detected. Please re-authenticate.');
+        // }
       }
 
       const user = { _id: userId, type };
@@ -145,6 +215,7 @@ export class AuthServiceService {
         message: 'Refresh token generated successfully!',
       };
     } catch (error) {
+      console.log(error);
       throw new UnauthorizedException(error.message || 'Invalid refresh token');
     }
   }
@@ -155,7 +226,7 @@ export class AuthServiceService {
 
       if (Boolean(dto.logoutAll) === true) {
         // Revoke all sessions (including current one)
-        await this.sessionsService.revokeAllUserSessions(request?.user?._id);
+        await this.sessionsService.revokeAllUserSessions(request?.user?.user?._id);
 
         // Only clear cookies for current device
         response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
@@ -195,8 +266,7 @@ export class AuthServiceService {
         message: error.message,
       };
     }
-  }
-  
+  }  
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user: any = await this.usersService.getUserByEmail(dto.email);

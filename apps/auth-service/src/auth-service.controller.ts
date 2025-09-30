@@ -10,9 +10,9 @@ import { AuthServiceService } from './auth-service.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResendResetPasswordDto } from './dto/resend-reset-password';
 import { LoginActivityService } from './login-activity/login-activity.service';
-import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { MeResponseDto } from './dto/profile-response.dto';
-import { LoginHistoryResponseDto } from './login-activity/dto/create-login-activity.dto/create-login-activity.dto';
+import { LoginHistoryResponseDto } from './login-activity/dto/create-login-activity.dto';
 import { RefreshResponseDto } from './users/dto/refresh-response.dto';
 
 @Controller('auth')
@@ -53,6 +53,38 @@ export class AuthServiceController {
   }
 
   @ApiTags('Auth')
+  @Get('validate')
+  @ApiOperation({ summary: 'Validate Token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid'
+  })
+  async validate(@Req() req: Request, @Res() res: Response) {
+    try {
+      const token = req.cookies?.Authentication;
+
+      if (!token) {
+        return res.status(401).json({ message: 'No auth token provided' });
+      }
+
+      const payload: any = await this.authServiceService.validateAccessToken(token);
+
+      console.log('I have returned the payload to Next.js', payload);
+
+      return res.status(200).json({
+        message: 'Token is valid',
+        user: {
+          id: payload?.data.sub,
+          type: payload?.data.type,
+          sessionId: payload?.data.sessionId,
+        },
+      });
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+  }
+
+  @ApiTags('Auth')
   @Post('refresh')
   @ApiCookieAuth('refreshToken')
   @ApiOperation({ summary: 'Rotate refresh token and issue new session/access cookies' })
@@ -88,6 +120,8 @@ export class AuthServiceController {
       logoutAll,
       sessionId
     }
+
+    console.log('payload', payload);
 
     const userResponse = await this.authServiceService.logout(payload, request, response);
 
@@ -151,14 +185,25 @@ export class AuthServiceController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('audit-logs/:userId')
+  @Get('audit-logs')
   @ApiTags('Audit Logs')
   @ApiOkResponse({
     type: LoginHistoryResponseDto,
     description: 'List of user login history records',
   })
-  async getUserAuditLogs(@Param('userId') userId: string, @Res() response: Response) {
-    const userResponse = await this.loginActivityService.getLogsForUser(userId);
+  async getUserAuditLogs(
+    @Req() request: Request | any,
+    @Res() response: Response,
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+  ) {
+    const userId = request.user?.user?._id;
+
+    const userResponse = await this.loginActivityService.getLogsForUser(
+      userId,
+      page,
+      pageSize
+    );
 
     return response.status(userResponse.status).json(userResponse);
   }
