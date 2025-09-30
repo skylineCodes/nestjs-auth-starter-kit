@@ -48,6 +48,7 @@
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.25",
+    "ua-parser-js": "^2.0.5",
     "useragent": "^2.3.0"
   },
   "devDependencies": {
@@ -66,6 +67,7 @@
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "@types/ua-parser-js": "^0.7.39",
     "@types/useragent": "^2.3.4",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
