@@ -80,7 +80,7 @@ describe('AuthServiceService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: SessionsService, useValue: mockSessionsService },
         { provide: LoginActivityService, useValue: mockLoginActivityService },
-        { provide: 'notification-service', useValue: mockNotificationsService },
+        { provide: 'notification-service-auth-kit', useValue: mockNotificationsService },
       ],
     }).compile();
 

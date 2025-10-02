@@ -1,4 +1,4 @@
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { NestFactory } from '@nestjs/core';
 import { NotificationServiceModule } from './notification-service.module';
 import { ConfigService } from '@nestjs/config';
@@ -20,8 +20,8 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: ['amqp://admin:gym_solution_9202@rabbitmq:5672'],
-      queue: 'notifications_queue',
+      urls: ['amqp://admin:admin_9202@host.docker.internal:5672'],
+      queue: 'notifications_queue_auth_kit',
       queueOptions: {
         durable: false,
       },

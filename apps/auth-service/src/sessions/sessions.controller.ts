@@ -1,7 +1,8 @@
-import { Controller, Delete, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../strategies/jwt-auth.guard';
 import { SessionsService } from './sessions.service';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 
 @ApiTags('Session')
 @Controller('auth/sessions')
@@ -67,17 +68,42 @@ export class SessionsController {
     status: 401,
     description: 'Unauthorized',
   })
-  async getSessions(@Req() req) {
-    return this.sessionsService.findSessionsByUser(req.user.token.sub);
+  async getSessions(
+    @Req() req: Request | any, 
+    @Res() response: Response,
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+  ) {
+    const currentSessionId = req.user.token?.sessionId;
+
+    const sessionResponse = await this.sessionsService.findSessionsByUser(
+      req.user.token.sub, 
+      currentSessionId, 
+      page,
+      pageSize
+    );
+
+    return response.status(sessionResponse.status).json(sessionResponse);
+  }
+
+  @Delete('/delete/:id')
+  async deleteSession(@Param('id') id: string, @Res() response: Response) {
+    const sessionResponse = await this.sessionsService.deleteSession(id);
+
+    return response.status(sessionResponse.status).json(sessionResponse);
   }
 
   @Delete(':id')
-  async revokeSession(@Param('id') id: string) {
-    return this.sessionsService.revokeSession(id);
+  async revokeSession(@Param('id') id: string, @Res() response: Response) {
+    const sessionResponse = await this.sessionsService.revokeSession(id);
+
+    return response.status(sessionResponse.status).json(sessionResponse);
   }
 
   @Delete()
-  async revokeAll(@Req() req) {
-    return this.sessionsService.revokeAllUserSessions(req.user.token.sub);
+  async revokeAll(@Req() req, @Res() response: Response) {
+    const sessionResponse = await this.sessionsService.revokeAllUserSessions(req.user.token.sub);
+
+    return response.status(sessionResponse.status).json(sessionResponse);
   }
 }

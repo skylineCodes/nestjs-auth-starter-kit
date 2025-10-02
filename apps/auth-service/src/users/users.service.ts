@@ -194,7 +194,7 @@ export class UsersService {
     const now = new Date();
     const isSameWindow =
       user.data?.otpRequestWindowStart &&
-      now.getTime() - new Date(user.data?.otpRequestWindowStart).getTime() < 60 * 60 * 1000;
+      now.getTime() - new Date(user.data?.otpRequestWindowStart).getTime() < 60 * 60 * 1000; // 1 hour
   
     // Too many attempts?
     if (isSameWindow && user.data?.otpRequestCount >= 5) {
@@ -204,7 +204,7 @@ export class UsersService {
     // Determine new values
     const update: any = {
       resetOtp: otp,
-      resetOtpExpires: new Date(Date.now() + 15 * 60 * 1000),
+      resetOtpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
     };
   
     if (isSameWindow) {
@@ -422,7 +422,6 @@ export class UsersService {
       return;
     } catch (error) {
       // Handle specific error scenarios if necessary
-      console.error('Error setting auth token:', error);
       throw new Error('Failed to set authentication token');
     }
   }
@@ -453,15 +452,13 @@ export class UsersService {
       const existingSession = await this.sessionsService.findActiveSession(user._id, request.ip, request.headers['user-agent']);
 
       let session: any;
-
-      // console.log('existingSession', existingSession);
-
+      
       if (existingSession?.data !== null) {
         session = existingSession;
       } else {
         const geo = await this.loginActivityService.lookupIp(ip as string);
         const locationDetails = { country: geo.country, city: geo.city, region: geo.region }
-        
+
         session = await this.sessionsService.createSession({
           userId: user._id,
           ipAddress: ip,
@@ -488,7 +485,6 @@ export class UsersService {
       }
     } catch (error) {
       // Handle specific error scenarios if necessary
-      console.error('Error setting auth token:', error);
       throw new Error('Failed to set authentication token');
     }
   }
@@ -500,17 +496,6 @@ export class UsersService {
   ): Promise<void> {
     try {
       const refreshToken = await this.generateRefreshToken(user._id, user.type, sessionData?._id.toString());
-
-      // const refreshExpiry = parseInt(
-      //   this.configService.get<string>('JWT_REFRESH_EXPIRY') as any,
-      //   10
-      // );
-      
-      // if (isNaN(refreshExpiry)) {
-      //   throw new Error('JWT_REFRESH_EXPIRY must be a number (in ms)');
-      // }
-
-      // console.log('New refreshToken issued at:', new Date(), refreshToken);
       
       response.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -523,7 +508,6 @@ export class UsersService {
       return;
     } catch (error) {
       // Handle specific error scenarios if necessary
-      console.error('Error setting refresh token:', error);
       throw new Error('Failed to set authentication token');
     }
   }
@@ -541,10 +525,7 @@ export class UsersService {
         },
       );
 
-      const now = Math.floor(Date.now() / 1000); // current time in seconds
-
-      // console.log(Date.now().toString());
-      // console.log(new Date(payload.exp * 1000).toString());
+      const now = Math.floor(Date.now() / 1000);
 
       if (payload.exp && payload.exp < now) {
         throw new Error('Token has expired');
@@ -565,10 +546,7 @@ export class UsersService {
         ignoreExpiration: true,
       });
 
-      const now = Math.floor(Date.now() / 1000); // current time in seconds
-
-      // console.log(Date.now().toString());
-      // console.log(new Date(payload.exp * 1000).toString());
+      const now = Math.floor(Date.now() / 1000);
 
       if (payload.exp && payload.exp < now) {
         throw new Error('Token has expired');

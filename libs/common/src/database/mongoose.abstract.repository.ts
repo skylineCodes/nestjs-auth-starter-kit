@@ -108,17 +108,16 @@ export abstract class MongooseAbstractRepository<TDocument extends AbstractDocum
       sort?: Record<string, 1 | -1>,
       page?: number,
       pageSize?: number,
-      select?: string | object
+      selectOption?: any
     }
   ): Promise<TDocument[]> {
     try {
-      const { sort = { createdAt: -1 }, page, pageSize } = options ?? {};
+      const { sort = { createdAt: -1 }, page, pageSize, selectOption } = options ?? {};
 
       const query = this.model.find(filterQuery);
 
-      console.log(sort); 
       // apply sort
-      query.sort(sort).select('-password');
+      query.sort(sort).select(selectOption);
 
       // optional select
       // if (select) query.select(select);
