@@ -69,7 +69,7 @@ export class AuthServiceController {
 
       const payload: any = await this.authServiceService.validateAccessToken(token);
 
-      console.log('I have returned the payload to Next.js', payload);
+      // console.log('I have returned the payload to Next.js', payload);
 
       return res.status(200).json({
         message: 'Token is valid',
@@ -121,7 +121,7 @@ export class AuthServiceController {
       sessionId
     }
 
-    console.log('payload', payload);
+    // console.log('payload', payload);
 
     const userResponse = await this.authServiceService.logout(payload, request, response);
 

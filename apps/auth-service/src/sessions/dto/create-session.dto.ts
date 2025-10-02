@@ -27,10 +27,6 @@ export class CreateSessionDto {
     type?: string;
   };
 
-  // @IsString()
-  // @IsOptional()
-  // location?: string;
-
   @IsBoolean()
   @IsOptional()
   isCurrentDevice?: boolean;

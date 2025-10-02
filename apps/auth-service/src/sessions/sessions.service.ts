@@ -38,14 +38,46 @@ export class SessionsService {
     }
   }
 
-  async findSessionsByUser(userId: string) {
+  async findSessionsByUser(userId: string, currentSessionId: string, page = 1, pageSize = 10) {
     try {
-      const sessions = await this.sessionsRepo.find({ userId, revoked: false });
+      const sessions = await this.sessionsRepo.find({ userId }, { sort: { lastSeenAt: -1 }, page, pageSize, selectOption: '-currentRefreshHash' });
+
+      const mappedSessions = sessions.map(session => ({
+        ...session,
+        isCurrentDevice: session._id.toString() === currentSessionId
+      }))
 
       return {
         status: 200,
-        count: sessions?.length,
-        data: sessions
+        count: mappedSessions?.length,
+        data: mappedSessions
+      }
+    } catch (error) {
+      if (error.code === '11000') {
+        return {
+          status: 500,
+          message: error.message,
+        };
+      }
+
+      if (error instanceof UnprocessableEntityException) {
+        throw error;
+      }
+
+      return {
+        status: 500,
+        message: error.message,
+      };
+    }
+  }
+
+  async deleteSession(sessionId: any) {
+    try {
+      await this.sessionsRepo.findOneAndDelete({ _id: sessionId });
+
+      return {
+        status: 200,
+        message: 'Session deleted successfully!'
       }
     } catch (error) {
       if (error.code === '11000') {
@@ -68,11 +100,11 @@ export class SessionsService {
 
   async revokeSession(sessionId: any) {
     try {
-      const sessions = await this.sessionsRepo.findOneAndUpdate({ _id: sessionId }, { revoked: true });
+      await this.sessionsRepo.findOneAndUpdate({ _id: sessionId }, { revoked: true });
 
       return {
         status: 200,
-        data: sessions
+        message: 'Session revoked successfully!'
       }
     } catch (error) {
       if (error.code === '11000') {
@@ -95,11 +127,12 @@ export class SessionsService {
 
   async revokeAllUserSessions(userId: string) {
     try {
-      const sessions = await this.sessionsRepo.updateMany({ userId }, { revoked: true });
+      await this.sessionsRepo.updateMany({ userId }, { revoked: true });
 
       return {
         status: 200,
-        modifiedCount: sessions.modifiedCount
+        message: 'All sessions revoked successfully!'
+        // modifiedCount: sessions.modifiedCount
       }
     } catch (error) {
       if (error.code === '11000') {

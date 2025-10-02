@@ -37,7 +37,6 @@ export class AuthServiceService {
         message: 'Account created successfully!',
       };
     } catch(error) {
-      console.log(error);
       if (error instanceof ConflictException || error instanceof BadRequestException) {
         throw error;
       }
@@ -91,7 +90,6 @@ export class AuthServiceService {
 
       if (ip) {
         const anomaly = await this.loginActivityService.detectAnomaly(user?.data?._id, ip, userAgent);
-        // console.log('anomaly', anomaly);
 
         location = {
           country: anomaly.location?.country,
@@ -142,8 +140,6 @@ export class AuthServiceService {
     try {
       const validateToken = await this.usersService.verifyToken(token);
 
-      console.log('validateToken', validateToken);
-
       return {
         status: 200,
         data: validateToken,
@@ -166,7 +162,6 @@ export class AuthServiceService {
     try {
       // 1. Verify token and decode payload
       const payload: any = await this.usersService.verifyRefreshToken(token);
-      // console.log('refreshToken was requested at:', new Date(), token);
       const { sub: userId, type, sessionId } = payload;
 
       if (!sessionId) {
@@ -175,8 +170,6 @@ export class AuthServiceService {
 
       // 2. Find session by sessionId
       const session = await this.sessionsService.getById(sessionId);
-
-      // console.log('new session', session?.data);
 
       if (!session?.data || session.data?.revoked) {
         throw new UnauthorizedException('Session not found or revoked');
@@ -189,7 +182,6 @@ export class AuthServiceService {
         );
 
         // if (!isMatch) {
-        //   console.log('refreshToken mismatched');
         //   await this.sessionsService.revokeSession(sessionId);
   
         //   // Revoke all sessions for this user for maximum security
@@ -215,7 +207,6 @@ export class AuthServiceService {
         message: 'Refresh token generated successfully!',
       };
     } catch (error) {
-      console.log(error);
       throw new UnauthorizedException(error.message || 'Invalid refresh token');
     }
   }
@@ -240,7 +231,7 @@ export class AuthServiceService {
       } else if (currentSessionId && dto.sessionId === null) {
         // Revoke only the current session
         await this.sessionsService.revokeSession(currentSessionId);
-
+        
         // Only clear cookies for current device
         response.clearCookie('Authentication', { path: '/', httpOnly: true, sameSite: 'strict' });
         response.clearCookie('refreshToken', { path: '/', httpOnly: true, sameSite: 'strict' });
@@ -260,7 +251,6 @@ export class AuthServiceService {
         };
       }
     } catch(error) {
-      console.log(error);
       return {
         status: 500,
         message: error.message,
