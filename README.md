@@ -7,6 +7,10 @@ This kit includes **database abstraction layers** for **MongoDB** (via Mongoose)
 
 No need to worry about ports — just access your API via `http://localhost/auth/`.
 
+## 🎥 Demo Video
+
+[![Watch the Demo](https://img.youtube.com/vi/XJ6jzP9O5Bo/maxresdefault.jpg)](https://www.youtube.com/watch?v=XJ6jzP9O5Bo)
+
 ## 📌 Features
 
 - 🔐 **Secure cookie-based authentication** (HttpOnly, Secure cookies — no JWT in localStorage)
