@@ -449,13 +449,14 @@ export class UsersService {
       const parser = new UAParser.UAParser(request.headers['user-agent']);
       const uaResult = parser.getResult();
 
-      const existingSession = await this.sessionsService.findActiveSession(user._id, request.ip, request.headers['user-agent']);
+      const existingSession = await this.sessionsService.findActiveSession(user._id, ip, userAgent);
 
       let session: any;
       
       if (existingSession?.data !== null) {
         session = existingSession;
       } else {
+        // console.log("I am still creating new session here...");
         const geo = await this.loginActivityService.lookupIp(ip as string);
         const locationDetails = { country: geo.country, city: geo.city, region: geo.region }
 
