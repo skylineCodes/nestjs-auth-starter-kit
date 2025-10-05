@@ -210,9 +210,9 @@ export class SessionsService {
   async findActiveSession(userId: string, ip: string | undefined, userAgent: string | undefined) {
     try {
       const session = await this.sessionsRepo.findOne({
-        userId,
-        // ip,
-        // userAgent,
+        userId: userId.toString(),
+        ipAddress: ip,
+        userAgent,
         revoked: false,
       });
 
